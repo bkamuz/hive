@@ -55,6 +55,7 @@ dmg:
 # ── Windows ────────────────────────────────────────────
 win:
   icon: resources/icon.ico
+  artifactName: "Hive-${version}-${arch}-win.${ext}"
   target:
     - target: nsis
       arch:
@@ -68,7 +69,7 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
-  artifactName: "Hive-Setup-${version}.${ext}"
+  artifactName: "Hive-Setup-${version}-${arch}.${ext}"
 
 # ── Linux ──────────────────────────────────────────────
 linux:
