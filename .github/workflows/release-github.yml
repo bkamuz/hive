@@ -44,7 +44,8 @@ jobs:
       - name: Download libghostty
         run: |
           mkdir -p vendor
-          gh release download ghostty-deps-v1 -p libghostty.a -D vendor/
+          # Canonical asset lives on upstream; forks don't mirror ghostty-deps-v1
+          gh release download ghostty-deps-v1 -R morapelker/hive -p libghostty.a -D vendor/
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: pip3 install --break-system-packages setuptools
@@ -56,7 +57,17 @@ jobs:
       - run: pnpm build
         env:
           GHOSTTY_LIB_PATH: ${{ github.workspace }}/vendor/libghostty.a
-      - run: pnpm exec electron-builder --mac --publish always
+      - name: Build and publish mac
+        run: |
+          EXTRA=()
+          if [ -z "${CSC_LINK:-}" ]; then
+            # Forks lack Apple signing secrets — still package + publish unsigned
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            EXTRA+=(-c.mac.notarize=false)
+          fi
+          pnpm exec electron-builder --mac --publish always \
+            -c.publish.owner="${GITHUB_REPOSITORY_OWNER}" \
+            "${EXTRA[@]}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -98,9 +109,20 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec electron-builder --win --x64 --arm64 --publish always
+      - run: pnpm exec electron-builder --win --x64 --arm64 --publish always -c.publish.owner=${{ github.repository_owner }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Windows installers
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-installers-v${{ needs.start.outputs.version }}
+          path: |
+            dist/Hive-Setup-*.exe
+            dist/Hive-*-win.zip
+            dist/latest.yml
+          if-no-files-found: error
+          retention-days: 14
       - name: Telegram — Windows build complete
         if: success()
         shell: bash
@@ -137,7 +159,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec electron-builder --linux --publish always
+      - run: pnpm exec electron-builder --linux --publish always -c.publish.owner=${{ github.repository_owner }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Telegram — Linux build complete
