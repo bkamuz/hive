@@ -59,15 +59,14 @@ jobs:
           GHOSTTY_LIB_PATH: ${{ github.workspace }}/vendor/libghostty.a
       - name: Build and publish mac
         run: |
-          EXTRA=()
+          EXTRA=(--config.publish.owner="${GITHUB_REPOSITORY_OWNER}")
           if [ -z "${CSC_LINK:-}" ]; then
-            # Forks lack Apple signing secrets — still package + publish unsigned
+            # Forks inject empty CSC_* env vars; unset so builder doesn't treat cwd as a cert
+            unset CSC_LINK CSC_KEY_PASSWORD
             export CSC_IDENTITY_AUTO_DISCOVERY=false
-            EXTRA+=(-c.mac.notarize=false)
+            EXTRA+=(--config.mac.identity=null --config.mac.notarize=false)
           fi
-          pnpm exec electron-builder --mac --publish always \
-            -c.publish.owner="${GITHUB_REPOSITORY_OWNER}" \
-            "${EXTRA[@]}"
+          pnpm exec electron-builder --mac --publish always "${EXTRA[@]}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -109,7 +108,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec electron-builder --win --x64 --arm64 --publish always -c.publish.owner=${{ github.repository_owner }}
+      - run: pnpm exec electron-builder --win --x64 --arm64 --publish always --config.publish.owner=${{ github.repository_owner }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Windows installers
@@ -159,7 +158,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec electron-builder --linux --publish always -c.publish.owner=${{ github.repository_owner }}
+      - run: pnpm exec electron-builder --linux --publish always --config.publish.owner=${{ github.repository_owner }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Telegram — Linux build complete
